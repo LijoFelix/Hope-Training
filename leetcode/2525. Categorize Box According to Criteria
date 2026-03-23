@@ -1,0 +1,11 @@
+class Solution {
+    public String categorizeBox(int length, int width, int height, int mass) {
+        int dimension=0,m=0;
+        if(length>=10000||width>=10000||height>=10000||(long)length*width*height>=1000000000) dimension=1;
+        if(mass>=100) m=1;
+        if(dimension==1&&m==1) return "Both";
+        else if(dimension!=1&&m!=1) return "Neither";
+        else if(dimension==1&&m!=1) return "Bulky";
+        else return "Heavy";
+    }
+}
