@@ -1,38 +1,46 @@
-class User
-{
+class User{
     String name;
     String phone;
     String address;
-    User()
-    {
-        System.out.println("Using default constructor of User class");
+    String role="user";
+    User(){
+        System.out.println("By using Super");
+    }
+    User(String name){
+        this.name=name;
+        System.out.println("User created");
+    }
+    void display(){
+        System.out.println("Name: "+name);
+        System.out.println("role: "+role);
     }
 }
-class FoodUser extends User
-{
-    String favouriteFood;
-    FoodUser()
-    {
-        System.out.println("Using default constructor of FoodUser class");
+class Driver extends User{
+    String role="Driver";
+    String vehicle;
+    Driver(String name,String vehicle){
+        super(name);
+        this.vehicle=vehicle;
+    }
+    void displayDriver(){
+        super.display();
+        System.out.println("vehicle "+vehicle);
+        System.out.println("Driver class role:"+role);
+        System.out.println("User class role:"+super.role);
     }
 }
-class TravelUser extends User
-{
-    String preferredVehicle;
-    TravelUser()
-    {
-        System.out.println("Using default constructor of TravelUser class");
-    }
-
-}
-public class App{
-    public static void main(String[] args)
-    {
-        User u1=new User();
-        FoodUser fu1=new FoodUser();
-        TravelUser tu1=new TravelUser();
-        System.out.println("User name: "+u1.name);
-        System.out.println("Food User name: "+fu1.name);    
-        System.out.println("Travel User name: "+tu1.name);  
+public class App {
+    public static void main(String[] args){
+        Driver D=new Driver("Abc","Bike");
+        D.displayDriver();
     }
 }
+// class FoodUser extends User{
+//     String favouriteFood;
+//     FoodUser(){
+//         System.out.println("Food user created");
+//     }
+// }
+// class TravelUser extends User{
+//     String preferredVehicle;
+// }
