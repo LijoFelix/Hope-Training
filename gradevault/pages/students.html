@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Students — GradeVault</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">📚</div>
+      <div><div class="logo-text">GradeVault</div><div class="logo-sub">Grade Tracker</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="../index.html" class="nav-item"><span class="nav-icon">🏠</span> Dashboard</a>
+      <a href="grades.html" class="nav-item"><span class="nav-icon">📋</span> All Grades</a>
+      <a href="analytics.html" class="nav-item"><span class="nav-icon">📊</span> Analytics</a>
+      <a href="students.html" class="nav-item active"><span class="nav-icon">👤</span> Students</a>
+    </nav>
+    <div class="sidebar-footer"><div class="sidebar-footer-text">IndexedDB · Local Storage</div></div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-title">Students</div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="toolbar">
+        <div class="search-box">
+          <span class="search-icon">⌕</span>
+          <input type="text" id="search" placeholder="Search students..." oninput="render()" />
+        </div>
+        <select id="sort-by" onchange="render()">
+          <option value="name">Sort: Name</option>
+          <option value="avg-desc">Avg: High → Low</option>
+          <option value="avg-asc">Avg: Low → High</option>
+          <option value="records">Most Records</option>
+        </select>
+      </div>
+      <div id="students-list">
+        <div class="empty-state"><div class="empty-icon">👤</div><div class="empty-text">Loading students...</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../js/db.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  let allRecords = [];
+
+  async function init() {
+    await DB.open();
+    await DB.seed();
+    allRecords = await DB.getAll();
+    render();
+  }
+
+  function render() {
+    const search = document.getElementById('search').value.toLowerCase();
+    const sortBy = document.getElementById('sort-by').value;
+
+    const map = {};
+    allRecords.forEach(r => {
+      if (!map[r.name]) map[r.name] = { name: r.name, records: [] };
+      map[r.name].records.push(r);
+    });
+
+    let students = Object.values(map).map(s => ({
+      ...s,
+      avg: s.records.reduce((a, r) => a + r.score, 0) / s.records.length,
+      best: Math.max(...s.records.map(r => r.score)),
+      subjects: [...new Set(s.records.map(r => r.subject))]
+    }));
+
+    if (search) students = students.filter(s => s.name.toLowerCase().includes(search));
+
+    students.sort((a, b) => {
+      if (sortBy === 'avg-desc') return b.avg - a.avg;
+      if (sortBy === 'avg-asc') return a.avg - b.avg;
+      if (sortBy === 'records') return b.records.length - a.records.length;
+      return a.name.localeCompare(b.name);
+    });
+
+    const list = document.getElementById('students-list');
+    if (!students.length) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-text">No students found.</div></div>';
+      return;
+    }
+
+    list.innerHTML = students.map(s => {
+      const initials = s.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      const g = gradeFromScore(s.avg);
+      const pct = Math.round(s.avg);
+      return `<div class="student-row">
+        <div class="student-avatar">${initials}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:500;font-size:14px;">${s.name}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">${s.subjects.join(' · ')} &nbsp;·&nbsp; ${s.records.length} record${s.records.length !== 1 ? 's' : ''}</div>
+          <div style="margin-top:7px;display:flex;align-items:center;gap:8px;">
+            <div class="progress-bar" style="max-width:200px;">
+              <div class="progress-fill" style="width:${pct}%;background:${g.color}"></div>
+            </div>
+            <span style="font-size:11px;color:var(--muted);">${pct}%</span>
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-family:var(--mono);font-size:20px;font-weight:600;">${s.avg.toFixed(1)}</div>
+          <span class="grade-pill" style="background:${g.color}22;color:${g.color};border:0.5px solid ${g.color}44;">${g.letter}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  init();
+</script>
+</body>
+</html>

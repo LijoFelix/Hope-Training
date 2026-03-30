@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GradeVault — Student Grade Tracker</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon">📚</div>
+        <div>
+          <div class="logo-text">GradeVault</div>
+          <div class="logo-sub">Grade Tracker</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="index.html" class="nav-item active">
+          <span class="nav-icon">🏠</span> Dashboard
+        </a>
+        <a href="pages/grades.html" class="nav-item">
+          <span class="nav-icon">📋</span> All Grades
+        </a>
+        <a href="pages/analytics.html" class="nav-item">
+          <span class="nav-icon">📊</span> Analytics
+        </a>
+        <a href="pages/students.html" class="nav-item">
+          <span class="nav-icon">👤</span> Students
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-footer-text">IndexedDB · Local Storage</div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+      <div class="topbar">
+        <div class="topbar-title">Dashboard</div>
+        <button class="btn btn-primary" onclick="openModal()">+ Add Grade</button>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Total Students</div>
+          <div class="stat-value" id="stat-students">0</div>
+          <div class="stat-badge badge-blue">enrolled</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Class Average</div>
+          <div class="stat-value" id="stat-avg">—</div>
+          <div class="stat-badge badge-green">all subjects</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Top Score</div>
+          <div class="stat-value" id="stat-top">—</div>
+          <div class="stat-badge badge-amber" id="stat-top-name">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Failing (< 60)</div>
+          <div class="stat-value" id="stat-fail">0</div>
+          <div class="stat-badge badge-red">need help</div>
+        </div>
+      </div>
+
+      <!-- Recent + Chart -->
+      <div class="dashboard-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Recent Records</div>
+            <a href="pages/grades.html" class="link-btn">View All →</a>
+          </div>
+          <div id="recent-table">
+            <div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No grades yet. Add your first record!</div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Grade Distribution</div></div>
+          <div style="position:relative;height:240px;"><canvas id="chart-dist"></canvas></div>
+          <div id="dist-legend" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;font-size:12px;color:var(--muted);"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modal" style="display:none;">
+    <div class="modal">
+      <div class="modal-title">Add Grade Record</div>
+      <div class="form-row">
+        <label class="form-label">Student Name</label>
+        <input class="form-input" id="f-name" type="text" placeholder="e.g. Ananya Sharma" />
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label class="form-label">Subject</label>
+          <input class="form-input" id="f-subject" type="text" placeholder="e.g. Mathematics" />
+        </div>
+        <div>
+          <label class="form-label">Score (0–100)</label>
+          <input class="form-input" id="f-score" type="number" min="0" max="100" placeholder="85" />
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Date</label>
+        <input class="form-input" id="f-date" type="date" />
+      </div>
+      <div class="form-row">
+        <label class="form-label">Notes (optional)</label>
+        <input class="form-input" id="f-notes" type="text" placeholder="e.g. Midterm exam" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveRecord()">Save Record</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script src="js/app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script>
+    async function init() {
+      await DB.open();
+      const records = await DB.getAll();
+      updateStats(records);
+      renderRecent(records);
+      renderDistChart(records);
+    }
+
+    function updateStats(records) {
+      document.getElementById('stat-students').textContent = records.length;
+      if (!records.length) return;
+      const avg = records.reduce((a, r) => a + r.score, 0) / records.length;
+      document.getElementById('stat-avg').textContent = avg.toFixed(1);
+      document.getElementById('stat-fail').textContent = records.filter(r => r.score < 60).length;
+      const top = records.reduce((a, r) => r.score > a.score ? r : a, records[0]);
+      document.getElementById('stat-top').textContent = top.score;
+      document.getElementById('stat-top-name').textContent = top.name.split(' ')[0];
+    }
+
+    function renderRecent(records) {
+      const container = document.getElementById('recent-table');
+      const recent = [...records].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 6);
+      if (!recent.length) return;
+      container.innerHTML = `<table><thead><tr><th>Student</th><th>Subject</th><th>Score</th><th>Grade</th></tr></thead>
+        <tbody>${recent.map(r => {
+          const g = gradeFromScore(r.score);
+          return `<tr><td style="font-weight:500">${r.name}</td>
+            <td><span class="subject-tag">${r.subject}</span></td>
+            <td style="font-family:var(--mono);font-weight:600">${r.score}</td>
+            <td><span class="grade-pill" style="background:${g.color}22;color:${g.color};border:0.5px solid ${g.color}44">${g.letter}</span></td></tr>`;
+        }).join('')}</tbody></table>`;
+    }
+
+    function renderDistChart(records) {
+      const buckets = { A: 0, B: 0, C: 0, D: 0, F: 0 };
+      records.forEach(r => buckets[gradeFromScore(r.score).letter]++);
+      const colors = { A: '#22c55e', B: '#3b82f6', C: '#f59e0b', D: '#f97316', F: '#ef4444' };
+      new Chart(document.getElementById('chart-dist'), {
+        type: 'doughnut',
+        data: { labels: Object.keys(buckets), datasets: [{ data: Object.values(buckets), backgroundColor: Object.values(colors), borderWidth: 0, hoverOffset: 6 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '65%' }
+      });
+      document.getElementById('dist-legend').innerHTML = Object.entries(buckets).map(([l, c]) =>
+        `<span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:${colors[l]}"></span>${l}: ${c}</span>`
+      ).join('');
+    }
+
+    let editId = null;
+    function openModal(id) {
+      editId = id || null;
+      document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+      if (!id) { ['f-name','f-subject','f-score','f-notes'].forEach(i => document.getElementById(i).value = ''); }
+      document.getElementById('modal').style.display = 'flex';
+    }
+    function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+    async function saveRecord() {
+      const name = document.getElementById('f-name').value.trim();
+      const subject = document.getElementById('f-subject').value.trim();
+      const score = parseInt(document.getElementById('f-score').value);
+      const date = document.getElementById('f-date').value;
+      const notes = document.getElementById('f-notes').value.trim();
+      if (!name || !subject || isNaN(score) || score < 0 || score > 100) { alert('Please fill all fields correctly.'); return; }
+      await DB.save({ name, subject, score, date, notes }, editId);
+      closeModal();
+      init();
+    }
+
+    document.getElementById('modal').addEventListener('click', e => { if (e.target === document.getElementById('modal')) closeModal(); });
+    init();
+  </script>
+</body>
+</html>
