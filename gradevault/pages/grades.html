@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>All Grades — GradeVault</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">📚</div>
+      <div>
+        <div class="logo-text">GradeVault</div>
+        <div class="logo-sub">Grade Tracker</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="../index.html" class="nav-item"><span class="nav-icon">🏠</span> Dashboard</a>
+      <a href="grades.html" class="nav-item active"><span class="nav-icon">📋</span> All Grades</a>
+      <a href="analytics.html" class="nav-item"><span class="nav-icon">📊</span> Analytics</a>
+      <a href="students.html" class="nav-item"><span class="nav-icon">👤</span> Students</a>
+    </nav>
+    <div class="sidebar-footer"><div class="sidebar-footer-text">IndexedDB · Local Storage</div></div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-title">All Grades</div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-export" onclick="doExport()">↓ Export CSV</button>
+        <button class="btn btn-primary" onclick="openModal()">+ Add Grade</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="toolbar">
+        <div class="search-box">
+          <span class="search-icon">⌕</span>
+          <input type="text" id="search" placeholder="Search student or subject..." oninput="render()" />
+        </div>
+        <select id="filter-subject" onchange="render()">
+          <option value="">All Subjects</option>
+        </select>
+        <select id="filter-grade" onchange="render()">
+          <option value="">All Grades</option>
+          <option value="A">A (90+)</option>
+          <option value="B">B (80–89)</option>
+          <option value="C">C (70–79)</option>
+          <option value="D">D (60–69)</option>
+          <option value="F">F (below 60)</option>
+        </select>
+        <select id="sort-by" onchange="render()">
+          <option value="name">Sort: Name</option>
+          <option value="score-desc">Score: High → Low</option>
+          <option value="score-asc">Score: Low → High</option>
+          <option value="subject">Subject</option>
+          <option value="date">Date</option>
+        </select>
+      </div>
+      <div id="table-area">
+        <div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Loading...</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Add Grade Record</div>
+    <div class="form-row">
+      <label class="form-label">Student Name</label>
+      <input class="form-input" id="f-name" type="text" placeholder="e.g. Ananya Sharma" />
+    </div>
+    <div class="form-row-2">
+      <div>
+        <label class="form-label">Subject</label>
+        <input class="form-input" id="f-subject" type="text" placeholder="e.g. Mathematics" />
+      </div>
+      <div>
+        <label class="form-label">Score (0–100)</label>
+        <input class="form-input" id="f-score" type="number" min="0" max="100" placeholder="85" />
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Date</label>
+      <input class="form-input" id="f-date" type="date" />
+    </div>
+    <div class="form-row">
+      <label class="form-label">Notes (optional)</label>
+      <input class="form-input" id="f-notes" type="text" placeholder="e.g. Midterm exam" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRecord()">Save Record</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/db.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  let records = [], editId = null;
+
+  async function init() {
+    await DB.open();
+    await DB.seed();
+    records = await DB.getAll();
+    updateSubjectFilter();
+    render();
+  }
+
+  function updateSubjectFilter() {
+    const subjects = [...new Set(records.map(r => r.subject))].sort();
+    const sel = document.getElementById('filter-subject');
+    const val = sel.value;
+    sel.innerHTML = '<option value="">All Subjects</option>';
+    subjects.forEach(s => {
+      const o = document.createElement('option');
+      o.value = s; o.textContent = s;
+      if (s === val) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+
+  function render() {
+    const search = document.getElementById('search').value.toLowerCase();
+    const subFilter = document.getElementById('filter-subject').value;
+    const gradeFilter = document.getElementById('filter-grade').value;
+    const sortBy = document.getElementById('sort-by').value;
+
+    let filtered = records.filter(r => {
+      const ms = r.name.toLowerCase().includes(search) || r.subject.toLowerCase().includes(search);
+      const msub = !subFilter || r.subject === subFilter;
+      const mg = !gradeFilter || gradeFromScore(r.score).letter === gradeFilter;
+      return ms && msub && mg;
+    });
+
+    filtered.sort((a, b) => {
+      if (sortBy === 'score-desc') return b.score - a.score;
+      if (sortBy === 'score-asc') return a.score - b.score;
+      if (sortBy === 'subject') return a.subject.localeCompare(b.subject);
+      if (sortBy === 'date') return new Date(b.date) - new Date(a.date);
+      return a.name.localeCompare(b.name);
+    });
+
+    const area = document.getElementById('table-area');
+    if (!filtered.length) {
+      area.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-text">No records match your filters.</div></div>';
+      return;
+    }
+
+    area.innerHTML = `<table>
+      <thead><tr>
+        <th>Student</th><th>Subject</th><th>Score</th><th>Grade</th><th>Date</th><th>Notes</th><th>Actions</th>
+      </tr></thead>
+      <tbody>${filtered.map(r => {
+        const g = gradeFromScore(r.score);
+        return `<tr>
+          <td style="font-weight:500">${r.name}</td>
+          <td><span class="subject-tag">${r.subject}</span></td>
+          <td style="font-family:var(--mono);font-weight:600">${r.score}</td>
+          <td><span class="grade-pill" style="background:${g.color}22;color:${g.color};border:0.5px solid ${g.color}44">${g.letter}</span></td>
+          <td style="color:var(--muted);font-size:12px">${r.date || '—'}</td>
+          <td style="color:var(--muted);font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.notes || '—'}</td>
+          <td>
+            <div class="action-btns">
+              <button class="icon-btn" onclick="openModal(${r.id})">✎</button>
+              <button class="icon-btn del" onclick="confirmDelete(${r.id})">✕</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  }
+
+  function openModal(id) {
+    editId = id || null;
+    document.getElementById('modal-title').textContent = id ? 'Edit Record' : 'Add Grade Record';
+    document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+    if (id) {
+      const r = records.find(r => r.id === id);
+      if (r) {
+        document.getElementById('f-name').value = r.name;
+        document.getElementById('f-subject').value = r.subject;
+        document.getElementById('f-score').value = r.score;
+        document.getElementById('f-date').value = r.date || '';
+        document.getElementById('f-notes').value = r.notes || '';
+      }
+    } else {
+      ['f-name','f-subject','f-score','f-notes'].forEach(i => document.getElementById(i).value = '');
+    }
+    document.getElementById('modal').style.display = 'flex';
+  }
+
+  function closeModal() { document.getElementById('modal').style.display = 'none'; editId = null; }
+
+  async function saveRecord() {
+    const name = document.getElementById('f-name').value.trim();
+    const subject = document.getElementById('f-subject').value.trim();
+    const score = parseInt(document.getElementById('f-score').value);
+    const date = document.getElementById('f-date').value;
+    const notes = document.getElementById('f-notes').value.trim();
+    if (!name || !subject || isNaN(score) || score < 0 || score > 100) {
+      alert('Please fill all fields correctly.'); return;
+    }
+    await DB.save({ name, subject, score, date, notes }, editId);
+    closeModal();
+    records = await DB.getAll();
+    updateSubjectFilter();
+    render();
+  }
+
+  async function confirmDelete(id) {
+    if (!confirm('Delete this grade record?')) return;
+    await DB.remove(id);
+    records = await DB.getAll();
+    updateSubjectFilter();
+    render();
+  }
+
+  function doExport() { exportCSV(records); }
+
+  document.getElementById('modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal')) closeModal();
+  });
+
+  init();
+</script>
+</body>
+</html>
