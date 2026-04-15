@@ -1,0 +1,21 @@
+class Solution {
+    public boolean checkIfPangram(String sentence) {
+        HashSet<Character> set=new HashSet<>();
+        for(char c:sentence.toCharArray()){
+            set.add(c);
+        }
+        return set.size()==26;
+    }
+}
+
+class Solution {
+    public boolean checkIfPangram(String str) {
+        char[] ch = str.toCharArray();
+        int flag=0;
+        for(char c:ch) {
+            flag=flag|(1<<(c-'a'));
+        }
+        return (flag==(1<<26)-1);
+    }
+}
+

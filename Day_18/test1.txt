@@ -1,0 +1,3 @@
+write using FileWriter 4
+write using FileWriter 5
+write using FileWriter 6
