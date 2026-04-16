@@ -1,0 +1,10 @@
+class Solution {
+    public boolean uniqueOccurrences(int[] arr) {
+        Map<Integer,Integer> fmap=new HashMap<>();
+        for(int num:arr){
+            fm.put(num,fm.getOrDefault(num,0)+1);
+        }
+        Set<Integer> fset=new HashSet<>(fm.values());
+        return fset.size()==fmap.size();
+    }
+}
